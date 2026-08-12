@@ -185,3 +185,4 @@ try:
 except Exception as e:
     st.error("Something went wrong while loading the stock data.")
     st.exception(e)
+    
