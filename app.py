@@ -3,6 +3,9 @@ import pandas as pd
 import numpy as np
 import yfinance as yf
 
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import accuracy_score, precision_score, recall_score
+
 st.set_page_config(
     page_title="Quant Stock Analytics",
     page_icon="📈",
@@ -12,8 +15,8 @@ st.set_page_config(
 st.title("📈 Quant Stock Analytics")
 
 st.markdown(
-    "A quantitative dashboard for analyzing stock performance, "
-    "returns, volatility, risk, and market relationships."
+    "A quantitative dashboard for analyzing stock prices, "
+    "returns, risk, stock comparisons, and machine learning signals."
 )
 
 st.sidebar.header("⚙️ Dashboard Settings")
@@ -66,14 +69,6 @@ period = st.sidebar.selectbox(
     "📅 Historical Period",
     ["6mo", "1y", "2y", "5y"],
     index=1
-)
-
-st.sidebar.markdown("---")
-
-st.sidebar.info(
-    f"Analyzing: **{company}**\n\n"
-    f"Ticker: **{ticker}**\n\n"
-    f"Benchmark: **{benchmark_name}**"
 )
 
 
@@ -228,7 +223,9 @@ try:
 
     st.subheader("📈 Stock Price")
 
-    st.line_chart(data[["Close"]])
+    st.line_chart(
+        data[["Close"]]
+    )
 
     st.subheader("📉 Moving Averages")
 
@@ -236,11 +233,15 @@ try:
         ["Close", "20 Day MA", "50 Day MA"]
     ].dropna()
 
-    st.line_chart(moving_average_data)
+    st.line_chart(
+        moving_average_data
+    )
 
     st.subheader("📈 Cumulative Returns")
 
-    st.line_chart(data["Cumulative Return"])
+    st.line_chart(
+        data["Cumulative Return"]
+    )
 
     st.subheader("📊 Daily Returns")
 
@@ -252,28 +253,6 @@ try:
 
     st.line_chart(
         data["Rolling Volatility"].dropna()
-    )
-
-    st.subheader("📊 Return Distribution")
-
-    returns = data["Daily Return"].dropna()
-
-    histogram_counts, histogram_edges = np.histogram(
-        returns,
-        bins=30
-    )
-
-    histogram_df = pd.DataFrame({
-        "Return Range": [
-            f"{histogram_edges[i]:.2%} to "
-            f"{histogram_edges[i + 1]:.2%}"
-            for i in range(len(histogram_counts))
-        ],
-        "Number of Days": histogram_counts
-    })
-
-    st.bar_chart(
-        histogram_df.set_index("Return Range")
     )
 
     st.subheader("⚠️ Quantitative Risk Metrics")
@@ -328,11 +307,13 @@ try:
     )
 
     if len(comparison_names) < 2:
+
         st.info(
             "Please select at least 2 stocks to compare."
         )
 
     else:
+
         comparison_data = {}
         comparison_metrics = []
 
@@ -491,15 +472,226 @@ try:
                 use_container_width=True
             )
 
+    st.markdown("---")
+
+    st.header("🤖 Machine Learning Analysis")
+
+    st.markdown(
+        "A simple Logistic Regression model that estimates "
+        "whether the next trading day's return will be positive."
+    )
+
+    ml_data = data.copy()
+
+    ml_data["5 Day Return"] = (
+        ml_data["Close"].pct_change(5)
+    )
+
+    ml_data["20 Day Return"] = (
+        ml_data["Close"].pct_change(20)
+    )
+
+    ml_data["Volume Change"] = (
+        ml_data["Volume"].pct_change()
+    )
+
+    ml_data["Next Day Return"] = (
+        ml_data["Close"].shift(-1)
+        / ml_data["Close"]
+        - 1
+    )
+
+    ml_data["Target"] = (
+        ml_data["Next Day Return"] > 0
+    ).astype(int)
+
+    feature_columns = [
+        "Daily Return",
+        "5 Day Return",
+        "20 Day Return",
+        "20 Day MA",
+        "50 Day MA",
+        "Rolling Volatility",
+        "Volume Change"
+    ]
+
+    ml_data = ml_data.dropna(
+        subset=feature_columns + ["Target"]
+    )
+
+    if len(ml_data) < 100:
+
+        st.warning(
+            "Not enough historical observations for "
+            "a meaningful machine learning experiment."
+        )
+
+    else:
+
+        X = ml_data[feature_columns]
+        y = ml_data["Target"]
+
+        split_index = int(
+            len(ml_data) * 0.8
+        )
+
+        X_train = X.iloc[:split_index]
+        X_test = X.iloc[split_index:]
+
+        y_train = y.iloc[:split_index]
+        y_test = y.iloc[split_index:]
+
+        model = LogisticRegression(
+            max_iter=1000
+        )
+
+        model.fit(
+            X_train,
+            y_train
+        )
+
+        predictions = model.predict(
+            X_test
+        )
+
+        probabilities = model.predict_proba(
+            X_test
+        )[:, 1]
+
+        accuracy = accuracy_score(
+            y_test,
+            predictions
+        )
+
+        precision = precision_score(
+            y_test,
+            predictions,
+            zero_division=0
+        )
+
+        recall = recall_score(
+            y_test,
+            predictions,
+            zero_division=0
+        )
+
+        ml_col1, ml_col2, ml_col3 = st.columns(3)
+
+        ml_col1.metric(
+            "Accuracy",
+            f"{accuracy:.2%}"
+        )
+
+        ml_col2.metric(
+            "Precision",
+            f"{precision:.2%}"
+        )
+
+        ml_col3.metric(
+            "Recall",
+            f"{recall:.2%}"
+        )
+
+        st.subheader(
+            "📈 ML Predictions"
+        )
+
+        prediction_data = pd.DataFrame(
+            {
+                "Actual": y_test.values,
+                "Predicted": predictions,
+                "Probability of Positive Return":
+                    probabilities
+            },
+            index=X_test.index
+        )
+
+        st.line_chart(
+            prediction_data[
+                ["Probability of Positive Return"]
+            ]
+        )
+
+        st.subheader(
+            "🧠 Latest Model Signal"
+        )
+
+        latest_features = X.iloc[[-1]]
+
+        latest_prediction = model.predict(
+            latest_features
+        )[0]
+
+        latest_probability = model.predict_proba(
+            latest_features
+        )[0][1]
+
+        if latest_prediction == 1:
+
+            st.success(
+                f"Model signal: Positive return\n\n"
+                f"Estimated probability of a positive "
+                f"next-day return: {latest_probability:.2%}"
+            )
+
+        else:
+
+            st.warning(
+                f"Model signal: Negative return\n\n"
+                f"Estimated probability of a positive "
+                f"next-day return: {latest_probability:.2%}"
+            )
+
+        st.caption(
+            "This is a historical machine-learning experiment, "
+            "not a guaranteed prediction or investment recommendation."
+        )
+
+        st.subheader(
+            "🔍 ML Features"
+        )
+
+        feature_description = pd.DataFrame(
+            {
+                "Feature": [
+                    "Daily Return",
+                    "5 Day Return",
+                    "20 Day Return",
+                    "20 Day MA",
+                    "50 Day MA",
+                    "20 Day Volatility",
+                    "Volume Change"
+                ],
+                "Meaning": [
+                    "Today's percentage price change",
+                    "Price change over the last 5 trading days",
+                    "Price change over the last 20 trading days",
+                    "Average closing price over 20 days",
+                    "Average closing price over 50 days",
+                    "Recent return variability",
+                    "Percentage change in trading volume"
+                ]
+            }
+        )
+
+        st.dataframe(
+            feature_description,
+            use_container_width=True,
+            hide_index=True
+        )
+
     with st.expander(
         "🔎 View Historical Data"
     ):
+
         st.dataframe(
             data.tail(50),
             use_container_width=True
         )
 
+
 except Exception as e:
+
     st.error(
         "Something went wrong while loading "
         "the stock data."
