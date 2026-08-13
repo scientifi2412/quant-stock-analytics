@@ -128,7 +128,7 @@ quant-stock-analytics/
 
 ### 1. Clone the repository
 ```bash
-git clone https://github.com/scientifi2412/quant-stock-analytics.git
+https://github.com/scientifi2412/quant-stock-analytics.git
 cd quant-stock-analytics
 ```
 
