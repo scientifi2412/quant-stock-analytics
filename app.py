@@ -307,13 +307,11 @@ try:
     )
 
     if len(comparison_names) < 2:
-
         st.info(
             "Please select at least 2 stocks to compare."
         )
 
     else:
-
         comparison_data = {}
         comparison_metrics = []
 
@@ -339,9 +337,7 @@ try:
                 * 100
             )
 
-            comparison_data[stock_name] = (
-                normalized_price
-            )
+            comparison_data[stock_name] = normalized_price
 
             stock_return = (
                 stock_data["Return"].dropna()
@@ -372,20 +368,14 @@ try:
                 - stock_cumulative_max
             ) / stock_cumulative_max
 
-            stock_max_drawdown = (
-                stock_drawdown.min()
-            )
+            stock_max_drawdown = stock_drawdown.min()
 
             comparison_metrics.append({
                 "Stock": stock_name,
-                "Annualized Return":
-                    stock_annual_return,
-                "Volatility":
-                    stock_volatility,
-                "Sharpe Ratio":
-                    stock_sharpe,
-                "Maximum Drawdown":
-                    stock_max_drawdown
+                "Annualized Return": stock_annual_return,
+                "Volatility": stock_volatility,
+                "Sharpe Ratio": stock_sharpe,
+                "Maximum Drawdown": stock_max_drawdown
             })
 
         if comparison_data:
@@ -515,6 +505,13 @@ try:
         "Volume Change"
     ]
 
+    # Remove infinite values created by percentage changes.
+    ml_data = ml_data.replace(
+        [np.inf, -np.inf],
+        np.nan
+    )
+
+    # Remove rows with missing values.
     ml_data = ml_data.dropna(
         subset=feature_columns + ["Target"]
     )
@@ -598,8 +595,6 @@ try:
 
         prediction_data = pd.DataFrame(
             {
-                "Actual": y_test.values,
-                "Predicted": predictions,
                 "Probability of Positive Return":
                     probabilities
             },
@@ -607,9 +602,7 @@ try:
         )
 
         st.line_chart(
-            prediction_data[
-                ["Probability of Positive Return"]
-            ]
+            prediction_data
         )
 
         st.subheader(
@@ -680,9 +673,7 @@ try:
             hide_index=True
         )
 
-    with st.expander(
-        "🔎 View Historical Data"
-    ):
+    with st.expander("🔎 View Historical Data"):
 
         st.dataframe(
             data.tail(50),
